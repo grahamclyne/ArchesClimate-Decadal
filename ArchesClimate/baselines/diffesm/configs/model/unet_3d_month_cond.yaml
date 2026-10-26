@@ -1,0 +1,9 @@
+defaults:
+  - unet_3d
+
+# DCPP-retargeted baseline with per-frame month-of-year conditioning added.
+# New functionality beyond the original DiffESM (Bassetti et al. 2024) baseline,
+# added to address reviewer comment #3 -- the native day_cond/year_cond above
+# are per-sample scalars unsuited to a long decadal-to-monthly sequence and are
+# left untouched (still False here).
+month_cond: True

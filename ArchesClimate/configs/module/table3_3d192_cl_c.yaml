@@ -1,0 +1,64 @@
+project: dcpp-deterministic
+norm_scheme: 'mean_only_spatial_norm'
+surface_variables: ['clt','net_flux','hurs','huss','pr','ps','psl','sfcWind','tasmax','tasmin','tas','evspsbl','thetaot2000','thetaot300','thetaot700','t20d','tos']
+level_variables: ["hur", "hus", "ta", "ua", "va", "wap", "zg"]
+surface_variable_indices: [0,1,2,3,4,5,6,7,8,9,10,11,14,15,16,17,18]
+level_variable_indices: [0,1,2,3,4,5,6]
+pressure_levels: [85000, 70000, 50000, 25000]
+var_weight: 1
+lat_weighting: True
+lat_weight_denom: 1
+dataset_name: dcpp
+forcing_type: dcpp
+
+# Table 3 "3D-192-CL-C": axial (3D) attention, 192 embed, WITH composite
+# loss, WITH conditional layer norm. Built from
+# forecast_added_input_state_small_3d.yaml (192, 3D, spectral loss unset ->
+# default False) with composite loss flipped on and the forcing-indexing fix
+# applied.
+module:
+  _target_: ArchesClimate.model.dcpp_forecast.ForecastModuleWithCond
+  name: ${name}
+  cond_dim: 512
+  lr: 3e-4
+  betas: [0.9, 0.98]
+  weight_decay: 0.05
+  num_warmup_steps: 5000
+  num_training_steps: ${max_steps}
+  use_prev: True
+  load_prev: 1
+  add_input_state: True
+  avg_with_modules: False
+  forcing_embed: True
+  flat_forcings: False
+  proper_year_forcings: True
+  use_spectral_loss: True
+  use_grad_loss: True
+
+backbone:
+  _target_: ArchesClimate.backbones.archesweather.ArchesWeatherCondBackbone
+  # 1 surface token + 4 pressure-level tokens along the P dimension
+  tensor_size: [5, 72, 72]
+  emb_dim: 192
+  cond_dim: 512
+  window_size: [1, 6, 10]
+  droppath_coeff: 0.2
+  dropout: 0
+  depth_multiplier: 2
+  use_skip: False
+  first_interaction_layer: False
+  axis_attn: True   # axial attention mixes information across pressure levels
+  mlp_layer: swiglu
+  mlp_ratio: 4.0
+
+embedder:
+  _target_: ArchesClimate.model.dcpp_encoder_decoder.DCPPEncodeDecodeLayer
+  # surface_ch = n_surface_vars * n_concatenated_states = 17 * 2 = 34
+  surface_ch: 34
+  level_ch: 7
+  img_size: [90, 144, 144]
+  emb_dim: 192
+  out_emb_dim: 192
+  patch_size: [2, 2, 2]
+  n_concatenated_states: 2
+  flatten_levels: False

@@ -1,0 +1,24 @@
+shared:
+  _target_: data.climate_dataset.ClimateDataset
+  seq_len: 120
+  scenario: dcpp
+  esm: IPSL
+  vars:
+    - tas
+
+train:
+  realizations:
+    - r1
+    - r2
+    - r3
+    - r4
+    - r5
+    - r6
+    - r7
+    - r8
+
+
+
+val:
+  realizations:
+    - r9

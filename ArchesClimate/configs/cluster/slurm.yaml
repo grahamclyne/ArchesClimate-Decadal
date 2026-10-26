@@ -1,0 +1,18 @@
+# Pass your account and optional partition/constraint via Hydra overrides.
+data_path: ${paths.data}
+work_path: ${paths.work}
+wandb_dir: ${paths.models}
+wandb_mode: offline
+use_custom_requeue: false
+precision: 16-mixed
+batch_size: 4
+gpus: 1
+cpus: 4
+launcher:
+  cpus_per_task: ${cluster.cpus}
+  gpus_per_node: ${cluster.gpus}
+  nodes: 1
+  tasks_per_node: ${cluster.gpus}
+  timeout_min: 1200
+  name: ${name}
+  slurm_account: ${oc.env:ARCHESCLIMATE_SLURM_ACCOUNT,???}

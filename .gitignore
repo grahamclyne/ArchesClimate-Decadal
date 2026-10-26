@@ -1,0 +1,12 @@
+# Generated Python package installation metadata.
+*.egg-info/
+
+# Local artifacts and wheel builds.
+/build/
+/dist/
+/data/
+/artifacts/
+
+__pycache__/
+*.py[cod]
+.ruff_cache/

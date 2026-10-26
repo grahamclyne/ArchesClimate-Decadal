@@ -1,0 +1,24 @@
+experiment: "forecast_added_input_state_small_3d_1_10_5_1_118_1_val_0_None"
+experiments_to_plot:
+  - "forecast_added_input_state_small_no_conditioning_no_year_1_24_5_1_118_1_val_0_None"
+  - "forecast_added_input_state_small_3d_1_10_5_1_118_1_val_0_None"
+  - "forecast_added_input_state_small_no_year_0_24_5_1_118_1_val_0_None"
+  - "forecast_added_input_state_with_spectral_0_24_5_1_118_1_val_0_None"
+  - "forecast_added_input_state_0_10_5_1_118_1_val_0_None"
+  - "forecast_added_input_state_small_no_spectral_2_24_5_1_118_1_val_0_None"
+experiment_names:
+  - "2D-768-CL-NC"
+  - "3D-192-CL-C"
+  - "2D-192-CL-C"
+  - "2D-768-CL-C"
+  - "2D-192-NCL-C"
+  - "2D-768-NCL-C"
+experiment_legend_title: ""
+num_members: 5
+num_rollout_steps: 118
+start_lat: 0
+end_lat: None
+start_lon: 0
+end_lon: None
+diffesm_year: 1970
+mesmer_year: 1969

@@ -1,0 +1,28 @@
+# Native (non-retargeted) reproduction of Bassetti et al. (2024, JAMES),
+# per reviewer_comments.txt Major Comment 3. See
+# data/native_repro/README.md for how this data was obtained and why this
+# config differs from configs/data/ipsl.yaml (the DCPP-retargeted config
+# used for the ArchesClimate paper comparison).
+shared:
+  _target_: data.climate_dataset.ClimateDataset
+  seq_len: 28
+  scenario: rcp85
+  esm: IPSL
+  vars:
+    - tas
+
+# Split matches the upstream JGCRI/diffesm repo's configs/data/ipsl.yaml
+# (train: r3,r4,r5,r6 / val: r2), using this project's actual CMIP5
+# ensemble IDs instead of upstream's abstract r1..r6 labels. r1i1p1 is held
+# out entirely here, for out-of-distribution evaluation on rcp26/rcp45
+# (see configs/data/IPSL/rcp26 and .../rcp45 data.json).
+train:
+  realizations:
+    - r3i1p1
+    - r4i1p1
+    - r5i1p1
+    - r6i1p1
+
+val:
+  realizations:
+    - r2i1p1

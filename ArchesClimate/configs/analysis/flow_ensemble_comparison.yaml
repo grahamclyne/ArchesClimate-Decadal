@@ -1,0 +1,42 @@
+  # Updated to the corrected/retrained checkpoints backing the bootstrapped
+  # Table 4/5 (see analysis/bootstrap_table45.py's COLS mapping): the old
+  # "_0"/"_1"-suffixed runs referenced here previously are stale placeholders
+  # (3D was the mislabeled/broken checkpoint; the others predate the "_cl"/"_v2"
+  # retrains). ck=epoch-epoch=19.ckpt for all six.
+  experiment: "flow_ensemble_single_small_cl_24_5_1_118_1_val_0_epoch-epoch=19.ckpt"
+  experiments_to_plot:
+    - "flow_ensemble_small_cl_24_5_1_118_1_val_0_epoch-epoch=19.ckpt"
+    - "flow_ensemble_large_cl_24_5_1_118_1_val_0_epoch-epoch=19.ckpt"
+    - "flow_ensemble_ncl_v2_24_5_1_118_1_val_0_epoch-epoch=19.ckpt"
+    - "flow_ensemble_single_small_cl_24_5_1_118_1_val_0_epoch-epoch=19.ckpt"
+    - "flow_ensemble_single_not_spectral_v2_24_5_1_118_1_val_0_epoch-epoch=19.ckpt"
+    - "flow_3d_prior_cl_24_5_1_118_1_val_0_epoch-epoch=19.ckpt"
+    - "diffesm"
+    - "mesmer"
+  experiment_names:
+    - "2D-E192-CL"
+    - "2D-E768-CL"
+    - "2D-E768-NCL"
+    - "2D-S768-CL"
+    - "2D-S768-NCL"
+    - "3D-S768-CL"
+ #   - "3D-S192-S"
+    - "DiffESM"
+    - "MESMER-M"
+  experiment_legend_title: ""
+  num_members: 5
+  num_rollout_steps: 118
+  start_lat: 0
+  end_lat: None
+  start_lon: 0
+  end_lon: None
+  diffesm_year: 1969
+  mesmer_year: 1969
+  # ArchesClimate rollouts save t=0 as the echoed 2nd input state (see
+  # forward_multistep's is_sampling branch + dcpp.py's __getitem__ index
+  # shift by load_prev*lead_time_months//timedelta=1), which is real
+  # February for every hindcast start (Jan+Feb are the 2-month init pair,
+  # first genuine prediction is March=t1). Verified via
+  # utils/generate_test_val_ensembles.py using the identical dataset
+  # indexing for the target ensemble files, so target/pred agree at t=0.
+  start_month: 2

@@ -1,0 +1,17 @@
+dataset: 
+  _target_: ArchesClimate.dataloaders.dcpp.DCPPForecast
+  path: ${paths.data}/dcpp_dataset_memmap
+  forcings_path: ${paths.forcings}
+  stats_path: ${paths.stats}
+  lead_time_months: 1 # mixed
+  norm_scheme: ${module.norm_scheme}
+  load_prev: ${module.module.load_prev}
+  limit_examples: ${limit_examples}
+  multistep: 1
+  filename_filter_type: dcpp
+  indexed_year_forcings: ${module.module.proper_year_forcings}
+  surface_variables: ${module.surface_variables}
+  level_variables: ${module.level_variables}
+  surface_variable_indices: ${module.surface_variable_indices}
+  level_variable_indices: ${module.level_variable_indices}
+  pressure_levels: ${module.pressure_levels}

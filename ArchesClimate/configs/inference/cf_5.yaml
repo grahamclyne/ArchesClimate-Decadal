@@ -1,0 +1,9 @@
+cf_guidance: 5
+s_churn: 0.0
+scale_input_noise: 1
+num_inference_steps: 50
+num_batch_examples: 1
+num_members: 50
+num_rollout_steps: 118
+target: test
+year: 0

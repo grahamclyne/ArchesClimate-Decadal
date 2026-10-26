@@ -1,0 +1,8 @@
+cf_guidance: 1
+s_churn: 0.0
+scale_input_noise: 1.2
+num_training_steps: ${max_steps}
+num_inference_steps: 50
+num_batch_examples: 1
+num_members: 40
+num_rollout_steps: 120

@@ -1,0 +1,10 @@
+cf_guidance: 1
+s_churn: 0.0
+scale_input_noise: 1
+num_inference_steps: 150
+num_batch_examples: 1
+num_members: 10
+num_rollout_steps: 118
+target: test
+year: 0
+#members_to_generate: ${eval:'[for x in range len(${inference.num_members})]'}

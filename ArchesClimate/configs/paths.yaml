@@ -1,0 +1,13 @@
+paths:
+  data: ${oc.env:ARCHESCLIMATE_DATA_ROOT,./data}
+  work: ${oc.env:ARCHESCLIMATE_WORK_ROOT,./artifacts}
+  stats: ${oc.env:ARCHESCLIMATE_STATS_ROOT,${paths.data}/stats}
+  forcings: ${oc.env:ARCHESCLIMATE_FORCINGS_ROOT,${paths.data}/reference_data}
+  models: ${oc.env:ARCHESCLIMATE_MODELS_ROOT,${paths.work}/model_output}
+  rollouts: ${oc.env:ARCHESCLIMATE_ROLLOUTS_ROOT,${paths.work}/generated_data}
+  targets: ${oc.env:ARCHESCLIMATE_TARGETS_ROOT,${paths.rollouts}}
+  long_rollouts: ${oc.env:ARCHESCLIMATE_LONG_ROLLOUTS_ROOT,${paths.rollouts}}
+  plots: ${oc.env:ARCHESCLIMATE_PLOTS_ROOT,${paths.work}/plots}
+  results: ${oc.env:ARCHESCLIMATE_RESULTS_ROOT,${paths.work}/results}
+  logs: ${oc.env:ARCHESCLIMATE_LOGS_ROOT,${paths.work}/sblogs}
+  metrics: ${oc.env:ARCHESCLIMATE_METRICS_ROOT,${paths.work}/computed_metrics}

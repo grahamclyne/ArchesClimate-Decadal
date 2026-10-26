@@ -1,0 +1,67 @@
+project: dcpp_diffusion
+norm_scheme: 'mean_only_spatial_norm'
+surface_variables: ['clt','net_flux','hurs','huss','pr','ps','psl','sfcWind','tasmax','tasmin','tas','evspsbl','thetaot2000','thetaot300','thetaot700','t20d','tos']
+level_variables: ["hur", "hus", "ta", "ua", "va", "wap", "zg"]
+surface_variable_indices: [0,1,2,3,4,5,6,7,8,9,10,11,14,15,16,17,18]
+level_variable_indices: [0,1,2,3,4,5,6] 
+pressure_levels: [85000, 70000, 50000, 25000]
+var_weight: 1
+lat_weighting: True
+lat_weight_denom: 1
+forcing_type: dcpp
+module:
+  _target_: ArchesClimate.model.dcpp_diffusion.DCPPDiffusion
+  name: ${name}
+  cond_dim: 512
+  prediction_type: v-pred
+  scheduler: flow
+  snr_gamma: 0
+  beta_schedule: squaredcos_cap_v2
+  conditional: prev+det
+  uncond_proba: 0.2
+
+  lr: 3e-4
+  betas: [0.9, 0.98] # try a 0.999 for betas ? and bigger bs ?
+  weight_decay: 0.05
+  num_warmup_steps: 5000
+  num_training_steps: ${max_steps}
+  num_inference_steps:  ${inference.num_inference_steps}
+  num_batch_examples: ${inference.num_batch_examples}
+  num_members: ${inference.num_members}
+  num_rollout_steps: ${inference.num_rollout_steps}
+  month_conditioning: True
+  year_conditioning: True
+  s_churn: ${inference.s_churn}
+  scale_input_noise: ${inference.scale_input_noise}
+  learn_residual: pred
+  state_normalization: pred
+  load_deterministic_model: ['${paths.models}/dcpp-deterministic/forecast_added_input_state_small_2','${paths.models}/dcpp-deterministic/forecast_added_input_state_small_3']
+  load_prev: 1
+  separate_forcing_embedder: True
+  proper_year_forcings: False
+  per_variable_noise: False
+  
+backbone:
+  # default backbone
+  _target_: ArchesClimate.backbones.archesweather.ArchesWeatherCondBackbone
+  tensor_size: [1,72,72] # after embed
+  emb_dim: 768
+  cond_dim: 512
+  window_size: [1, 6, 10]
+  droppath_coeff: 0.2
+  dropout: 0
+  depth_multiplier: 2
+  use_skip: False
+  first_interaction_layer: False
+  axis_attn: False
+  mlp_layer: swiglu
+  mlp_ratio: 4.0
+embedder:
+  _target_: ArchesClimate.model.dcpp_encoder_decoder.DCPPEncodeDecodeLayer
+  surface_ch: 180
+  level_ch: 7
+  img_size: [180,144,144]
+  emb_dim: 768
+  out_emb_dim: 768 # 2x because of skip
+  patch_size: [2, 2, 2]
+  n_concatenated_states: 2 # prev and pred

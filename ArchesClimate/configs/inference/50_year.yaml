@@ -1,0 +1,13 @@
+cf_guidance: 1
+s_churn: 0.0
+scale_input_noise: 1
+num_inference_steps: 25
+num_batch_examples: 1
+num_members: 10
+num_rollout_steps: 600
+target: train
+year: 0
+flat_forcings: False
+start_member: 0
+end_member: 10
+ckpt_fname: !!null

@@ -1,0 +1,413 @@
+import os
+import random
+import shutil
+from collections.abc import Callable
+from typing import Any
+
+import torch
+from accelerate import Accelerator
+from custom_diffusers.continuous_ddpm import ContinuousDDPM
+from data.climate_dataset import ClimateDataLoader, ClimateDataset
+from diffusers import SchedulerMixin
+from einops import reduce
+from ema_pytorch import EMA
+from models.video_net import UNetModel3D, build_month_map
+from omegaconf.dictconfig import DictConfig
+from torch.optim import Optimizer
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+from utils.gen_utils import generate_samples
+
+
+def calc_mse_loss(model_output, target):
+    """Manually calculate mse loss"""
+    spatial_loss = (model_output - target) ** 2
+
+    # Weight the equator more heavily than the poles
+    latitude = torch.linspace(
+        -90, 90, spatial_loss.shape[-2], device=spatial_loss.device
+    )
+    latitude_rad = torch.deg2rad(latitude)
+    latitude_weight = torch.cos(latitude_rad)
+
+    # Weight the loss
+    lat_weighted_loss = (spatial_loss * latitude_weight[:,None]).mean()
+
+    return lat_weighted_loss
+
+
+class UNetTrainer:
+    """Trainer class for 2D diffusion models."""
+
+    def __init__(
+        self,
+        train_set: ClimateDataset,
+        val_set: ClimateDataset,
+        model: UNetModel3D,
+        scheduler: SchedulerMixin,
+        accelerator: Accelerator,
+        hyperparameters: DictConfig,
+        dataloader: Callable[[Any], DataLoader],
+        optimizer: Callable[[Any], Optimizer],
+    ) -> None:
+        # Assign the hyperparameters to class attributes
+        self.save_hyperparameters(hyperparameters)
+
+        # Assign more class attributes
+        self.accelerator = accelerator
+        self.train_set, self.val_set = train_set, val_set
+        self.model = model
+        self.scheduler: SchedulerMixin = scheduler
+
+        self.scheduler.set_timesteps(self.sample_steps)
+
+        # Keep track of our exponential moving average weights
+        self.ema_model = EMA(
+            self.model,
+            beta=0.9999,  # exponential moving average factor
+            update_after_step=100,  # only after this number of .update() calls will it start updating
+            update_every=10,
+        ).to(self.accelerator.device)
+
+        # Assign the device and weight dtype (32 bit for training)
+        self.device = self.accelerator.device
+        self.weight_dtype = torch.float32
+
+        self.optimizer = optimizer(
+            self.model.parameters(), lr=self.lr * self.accelerator.num_processes
+        )
+
+        self.train_loader: ClimateDataLoader = dataloader(
+            self.train_set,
+            self.accelerator,
+            self.batch_size,
+        )
+        self.val_loader: ClimateDataLoader = dataloader(
+            self.val_set,
+            self.accelerator,
+            self.batch_size,
+        )
+
+        # Initialize counters
+        self.global_step = 0
+        self.first_epoch = 0
+
+        # Keep track of important variables for logging
+        self.total_batch_size = (
+            self.batch_size
+            * self.accelerator.num_processes
+            * self.accelerator.gradient_accumulation_steps
+        )
+        self.num_steps_per_epoch = (
+            len(self.train_loader)
+            // self.accelerator.gradient_accumulation_steps
+            // self.accelerator.num_processes
+        )
+        self.max_train_steps = self.max_epochs * self.num_steps_per_epoch
+
+        # Log to WANDB (on main process only)
+        if self.accelerator.is_main_process:
+            self.log_hparams()
+
+        # Load model states from checkpoints if they exist
+        if self.load_path:
+            self.load()
+
+        # Prepare everything for GPU training
+        self.prepare()
+
+    def save_hyperparameters(self, cfg: DictConfig) -> None:
+        """Saves the hyperparameters as class attributes."""
+        for key, value in cfg.items():
+            setattr(self, key, value)
+
+    def log_hparams(self):
+        """Logs the hyperparameters to WANDB."""
+        run = self.accelerator.get_tracker("wandb").tracker
+
+        hparam_dict = {
+            "Number Training Examples": len(self.train_set)
+            * len(self.train_set.realizations),
+            "Number Epochs": self.max_epochs,
+            "Batch Size per Device": self.batch_size,
+            "Total Train Batch Size (w. distributed & accumulation)": self.total_batch_size,
+            "Gradient Accumulation Steps": self.accelerator.gradient_accumulation_steps,
+            "Total Optimization Steps": self.max_train_steps,
+        }
+
+        run.config.update(hparam_dict)
+
+    def prepare(self):
+        """Just send all relevant objects through the accelerator to be placed on GPU."""
+        (
+            self.model,
+            self.optimizer,
+        ) = self.accelerator.prepare(self.model, self.optimizer)
+
+    def train(self):
+        # Sanity check the validation loop and sampling before training
+        reached_max_steps = False
+        epoch = self.first_epoch
+        for epoch in range(self.first_epoch, self.max_epochs):
+            progress_bar = tqdm(
+                total=self.num_steps_per_epoch,
+                disable=not self.accelerator.is_local_main_process,
+            )
+            progress_bar.set_description(f"Epoch {epoch}")
+
+            for step, batch in enumerate(self.train_loader.generate()):
+                self.model.train()
+                # Skip steps until we reach the resumed step
+                if (
+                    self.load_path
+                    and epoch == self.first_epoch
+                    and step < self.resume_step
+                ):
+                    if step % self.accelerator.gradient_accumulation_steps == 0:
+                        progress_bar.update(1)
+                    continue
+
+                loss = self.get_loss(batch)
+                
+                # Check if the accelerator has performed an optimization step
+                if self.accelerator.sync_gradients:
+                    # Update counts
+                    progress_bar.update(1)
+                    self.global_step += 1
+                    self.ema_model.update()
+
+                    if self.accelerator.is_main_process:
+                        # Sampling is optional (sample_every=0 disables it): each sample is a
+                        # full 250-step denoising loop and dominated wall time when frequent.
+                        if self.sample_every and self.global_step % self.sample_every == 0:
+                            self.sample()
+
+                        # Save by global step (not epoch)
+                        if self.global_step % self.save_every == 0:
+                            self.save(epoch)
+
+                    if self.max_steps and self.global_step >= self.max_steps:
+                        reached_max_steps = True
+
+                    # Metric calculation and logging
+                    avg_loss = self.accelerator.gather_for_metrics(loss).mean()
+                    log_dict = {"Training/Loss": avg_loss.detach().item()}
+                    self.accelerator.log(log_dict, step=self.global_step)
+                    self.accelerator.log({"Epoch": epoch}, step=self.global_step)
+                    progress_bar.set_postfix(**log_dict)
+
+                    if reached_max_steps:
+                        break
+
+            progress_bar.close()
+            if reached_max_steps:
+                break
+
+        if self.accelerator.is_main_process:
+            self.save(epoch)  # final state
+
+    def get_original_sample(self, noisy_sample, model_output, timesteps, t=None):
+        if isinstance(self.scheduler, ContinuousDDPM):
+            # predict_start_from_v/noise internally call self.log_snr(t), so they
+            # need the original uniform t in [0, 1], not the already-transformed log-SNR.
+            t_in = t if t is not None else timesteps
+            if self.scheduler.prediction_type == "v_prediction":
+                return self.scheduler.predict_start_from_v(
+                    x_t=noisy_sample, t=t_in, v=model_output
+                )
+            elif self.scheduler.prediction_type == "epsilon":
+                return self.scheduler.predict_start_from_noise(
+                    x_t=noisy_sample, t=t_in, noise=model_output
+                )
+            else:
+                raise ValueError(f"Unsupported prediction type: {self.scheduler.prediction_type}")
+        else:
+            alpha_prod_t = self.scheduler.alphas_cumprod[timesteps].view(-1, 1, 1, 1, 1)
+            beta_prod_t = 1 - alpha_prod_t
+            return (alpha_prod_t**0.5) * noisy_sample - (beta_prod_t**0.5) * model_output
+
+
+
+
+    def get_loss(self, batch):
+        clean_samples = batch["data"].to(self.weight_dtype)
+        cond_map = reduce(clean_samples, "b v t h w -> b v 1 h w", "mean").repeat(
+            1, 1, clean_samples.shape[-3], 1, 1
+        )
+        month_map = None
+        if getattr(self.accelerator.unwrap_model(self.model), "month_cond", False):
+            month_map = build_month_map(
+                batch["months"], clean_samples.shape[-2], clean_samples.shape[-1]
+            ).to(clean_samples)
+
+        # Sample noise that we'll add to the clean images
+        noise = torch.randn_like(clean_samples)
+
+        if isinstance(self.scheduler, ContinuousDDPM):
+            t = torch.rand(clean_samples.shape[0], device=self.device)
+            timesteps = self.scheduler.log_snr(t)
+        else:
+            t = None
+            timesteps = torch.randint(
+                0,
+                self.scheduler.config.num_train_timesteps,
+                (clean_samples.shape[0],),
+                device=self.device,
+            ).long()
+
+        # Add noise to the clean images according to the noise magnitude at each timestep
+        # (this is the forward diffusion process)
+        noisy_samples = self.scheduler.add_noise(clean_samples, noise, timesteps)
+
+        with self.accelerator.accumulate(self.model):
+            model_output = self.model(
+                noisy_samples,
+                timesteps,
+                cond_map=cond_map,
+                month_map=month_map,
+            )
+
+            # Make sure to get the right target for the loss
+            if self.scheduler.config.prediction_type == "epsilon":
+                target = noise
+            elif self.scheduler.config.prediction_type == "v_prediction":
+                target = self.scheduler.get_velocity(clean_samples, noise, timesteps)
+            else:
+                raise NotImplementedError("Only epsilon and v_prediction supported")
+
+            # Calculate loss and update gradients
+            mse_loss = calc_mse_loss(model_output, target)
+
+            # Calculate the avg conditional loss
+            pred_original_sample = self.get_original_sample(noisy_samples, model_output, timesteps, t)
+
+            # Get the mean of both the clean and the predicted original sample
+            clean_mean = clean_samples.mean(dim=-3)
+            pred_mean = pred_original_sample.mean(dim=-3)
+
+            cond_loss = ((clean_mean - pred_mean) ** 2).mean()
+
+            # Calculate the loss
+            loss = mse_loss + cond_loss
+
+
+            # Scale the loss by cosine-weighted latitude
+            self.accelerator.backward(loss)
+
+            if self.accelerator.sync_gradients:
+                self.accelerator.clip_grad_norm_(self.model.parameters(), 1.0)
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+        return loss
+
+    @torch.inference_mode()
+    def validation_loop(self, sanity_check=False) -> None:
+        """Runs a single epoch of validation.
+
+        Updates the loss, logs it, and backpropagates the error.
+        """
+        self.model.eval()
+        val_loss = 0
+
+        for batch_idx, batch in enumerate(self.val_loader.generate()):
+            # If we are sanity checking, only run 10 batches
+            if sanity_check and batch_idx > 10:
+                return
+
+            val_loss += self.model_forward_pass(batch)[0].item()
+
+        # Log the average
+        self.accelerator.log(
+            {"Validation/Loss": val_loss / len(self.val_loader)}, step=self.global_step
+        )
+
+    @torch.inference_mode()
+    def sample(self) -> None:
+        """Samples a batch of images from the model."""
+
+        self.ema_model.eval()
+        # Grab a random sample from validation set
+        batch = random.choice(self.val_set)
+        clean_samples = batch["data"].unsqueeze(0).to(self.accelerator.device).to(self.weight_dtype)
+        months = batch["months"].unsqueeze(0).to(self.accelerator.device)
+
+        # Generate the samples
+        gen_sample = generate_samples(
+            clean_samples, self.scheduler, self.sample_steps, self.ema_model,
+            months=months,
+        )
+
+        # Turn the samples into xr datasets
+        # gen_ds = self.val_set.convert_tensor_to_xarray(gen_sample[0])
+        # val_ds = self.val_set.convert_tensor_to_xarray(clean_samples[0])
+
+        # Create a gif of the samples
+        # gen_frames = create_gif(gen_ds)
+        # val_frames = create_gif(val_ds)
+
+        # Log the gif to wandb
+        # for var, gif in gen_frames.items():
+        #     self.accelerator.log(
+        #         {f"Generated {var}": wandb.Video(gif, fps=4)}, step=self.global_step
+        #     )
+
+        # for var, gif in val_frames.items():
+        #     self.accelerator.log(
+        #         {f"Original {var}": wandb.Video(gif, fps=4)}, step=self.global_step
+        #     )
+
+    def save(self, epoch: int):
+        """Saves the state of training to disk."""
+        if self.save_name is None:
+            return
+        else:
+            state_dict = {
+                "EMA": self.ema_model,
+                "Unet": self.accelerator.unwrap_model(self.model).state_dict(),
+                "Optimizer": self.optimizer.state_dict(),
+                "Global Step": self.global_step,
+            }
+
+            # If the directory doesn't exist already create it
+            os.makedirs(self.save_dir, exist_ok=True)
+
+            base = self.save_name.split(".pt")[0]
+            step_path = os.path.join(self.save_dir, f"{base}_step{self.global_step}.pt")
+            latest_path = os.path.join(self.save_dir, f"{base}_latest.pt")
+            self.accelerator.save(state_dict, step_path)
+            # rolling copy used to resume (write to tmp then rename so a kill can't corrupt it)
+            tmp = latest_path + ".tmp"
+            shutil.copyfile(step_path, tmp)
+            os.replace(tmp, latest_path)
+            # keep only the most recent checkpoints on disk
+            keep = getattr(self, "keep_last_checkpoints", 0)
+            if keep:
+                import glob
+                import re
+                steps = sorted(glob.glob(os.path.join(self.save_dir, f"{base}_step*.pt")),
+                               key=lambda f: int(re.search(r"_step(\d+)\.pt$", f).group(1)))
+                for old_f in steps[:-keep]:
+                    os.remove(old_f)
+
+    def load(self):
+        """Loads the state of training from a checkpoint."""
+
+        # Make sure to map all tensors to the CPU for consistency
+        checkpoint = torch.load(self.load_path, map_location="cpu")
+        print('loading checkpoint ', self.load_path)
+        # Load trainer variables
+        self.global_step = checkpoint["Global Step"]
+
+        # Update counts related to progress in training
+        self.resume_global_step = (
+            self.global_step * self.accelerator.gradient_accumulation_steps
+        )
+        self.first_epoch = self.global_step // self.num_steps_per_epoch
+        self.resume_step = self.resume_global_step % (
+            self.num_steps_per_epoch * self.accelerator.gradient_accumulation_steps
+        )
+
+        # Load the state dict for models and optimizers
+        self.model.load_state_dict(checkpoint["Unet"])
+        self.optimizer.load_state_dict(checkpoint["Optimizer"])
+        self.ema_model = checkpoint["EMA"].to(self.device)

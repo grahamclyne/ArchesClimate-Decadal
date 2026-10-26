@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+  - model: unet_3d
+  - scheduler: continuousddpm
+  - paths: default
+
+# Seed for random number generators
+seed: 0
+samples_per: 5
+load_path: checkpoints/ipsl_tas_dcpp_12_timesteps_19.pt
+esm: IPSL
+scenario: dcpp
+gen_mode: gen  # Either gen/val/test
+batch_size: 1
+sample_steps: 250
+start_year: 2010
+end_year: 2020
+variables: [tas]
+save_name: null  # Only set a save name if you want something special added to your save path
+# spatial_resolution: null
+
+dataset:
+  _target_: data.climate_dataset.ClimateDataset
+  seq_len: 120
+
+accelerator:
+  mixed_precision: fp16

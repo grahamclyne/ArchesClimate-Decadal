@@ -1,0 +1,10 @@
+data_path: ${paths.data}
+work_path: ${paths.work}
+wandb_dir: ${paths.models}
+wandb_mode: offline
+use_custom_requeue: false
+precision: 32-true
+batch_size: 1
+gpus: 1
+cpus: 0
+launcher: {}

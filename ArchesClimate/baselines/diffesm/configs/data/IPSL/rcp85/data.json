@@ -1,0 +1,61 @@
+{
+  "load_dir": "/lustre/fsn1/projects/rech/mlr/udy16au/diffesm_native_repro_raw",
+  "realizations": {
+    "r1i1p1": {
+      "pr": [
+        "r1i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r1i1p1_pr_1850-2005.nc",
+        "r1i1p1/rcp85/CMIP5_IPSL-CM5A-LR_day_rcp85_r1i1p1_pr_2006-2100.nc"
+      ],
+      "tas": [
+        "r1i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r1i1p1_tas_1850-2005.nc",
+        "r1i1p1/rcp85/CMIP5_IPSL-CM5A-LR_day_rcp85_r1i1p1_tas_2006-2100.nc"
+      ]
+    },
+    "r2i1p1": {
+      "pr": [
+        "r2i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r2i1p1_pr_1850-2005.nc",
+        "r2i1p1/rcp85/CMIP5_IPSL-CM5A-LR_day_rcp85_r2i1p1_pr_2006-2100.nc"
+      ],
+      "tas": [
+        "r2i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r2i1p1_tas_1850-2005.nc",
+        "r2i1p1/rcp85/CMIP5_IPSL-CM5A-LR_day_rcp85_r2i1p1_tas_2006-2100.nc"
+      ]
+    },
+    "r3i1p1": {
+      "pr": [
+        "r3i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r3i1p1_pr_1850-2005.nc",
+        "r3i1p1/rcp85/CMIP5_IPSL-CM5A-LR_day_rcp85_r3i1p1_pr_2006-2100.nc"
+      ],
+      "tas": [
+        "r3i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r3i1p1_tas_1850-2005.nc",
+        "r3i1p1/rcp85/CMIP5_IPSL-CM5A-LR_day_rcp85_r3i1p1_tas_2006-2100.nc"
+      ]
+    },
+    "r4i1p1": {
+      "pr": [
+        "r4i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r4i1p1_pr_1850-2005.nc",
+        "r4i1p1/rcp85/CMIP5_IPSL-CM5A-LR_day_rcp85_r4i1p1_pr_2006-2100.nc"
+      ],
+      "tas": [
+        "r4i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r4i1p1_tas_1850-2005.nc",
+        "r4i1p1/rcp85/CMIP5_IPSL-CM5A-LR_day_rcp85_r4i1p1_tas_2006-2100.nc"
+      ]
+    },
+    "r5i1p1": {
+      "pr": [
+        "r5i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r5i1p1_pr_1850-2005.nc"
+      ],
+      "tas": [
+        "r5i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r5i1p1_tas_1850-2005.nc"
+      ]
+    },
+    "r6i1p1": {
+      "pr": [
+        "r6i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r6i1p1_pr_1850-2005.nc"
+      ],
+      "tas": [
+        "r6i1p1/historical/CMIP5_IPSL-CM5A-LR_day_historical_r6i1p1_tas_1850-2005.nc"
+      ]
+    }
+  }
+}

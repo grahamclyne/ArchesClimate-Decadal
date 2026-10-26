@@ -1,0 +1,13 @@
+experiment: "flow_ensemble_single_small_cl_24_5_1_118_1"
+ckpt_fname: "epoch-epoch=19.ckpt"
+num_members: 5
+num_rollout_steps: 118
+start_lat: 0
+end_lat: None
+start_lon: 0
+end_lon: None
+diffesm_year: 1970
+mesmer_year: 1969
+test_0_year: 1969
+test_10_year: 1979
+val_year: 2010

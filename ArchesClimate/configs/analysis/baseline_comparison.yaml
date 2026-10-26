@@ -1,0 +1,18 @@
+experiment: "flow_ensemble_single_small_0_24_10_1_118_1_test_0_None"
+experiments_to_plot:
+  - "flow_ensemble_single_small_0_24_5_1_118_1_val_0_None"
+  - "diffesm"
+  - "mesmer"
+experiment_names:
+  - "ArchesClimate"
+  - "DiffESM"
+  - "MESMER-M"
+experiment_legend_title: ""
+num_members: 5
+num_rollout_steps: 118
+start_lat: 0
+end_lat: None
+start_lon: 0
+end_lon: None
+diffesm_year: 1970
+mesmer_year: 1969

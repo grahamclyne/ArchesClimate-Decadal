@@ -1,0 +1,35 @@
+_target_: trainers.unet_trainer.UNetTrainer
+
+hyperparameters:
+  max_epochs: 20
+  sample_every: 0        # 0 disables in-training sampling (each sample = 250 denoising steps)
+  save_every: 1000       # checkpoints are saved by global step: <save_name>_step<N>.pt + <save_name>_latest.pt
+  max_steps: null        # stop after this many optimizer steps (null = run max_epochs)
+  keep_last_checkpoints: 5
+  batch_size: 1
+  save_dir: checkpoints
+  save_name: ipsl_tas_dcpp_12_timesteps.pt
+  load_path: False
+  lr: 0.0001
+  sample_steps: 250
+
+dataloader:
+  _target_: data.climate_dataset.ClimateDataLoader
+  _partial_: True
+  shuffle: True
+  num_workers: 0
+  pin_memory: false
+  drop_last: false
+
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: True
+  betas: [0.9, 0.99]
+
+
+accelerator:
+  mixed_precision: fp16
+  split_batches: False
+  gradient_accumulation_steps: 1
+  log_with: wandb

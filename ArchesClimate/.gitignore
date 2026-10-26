@@ -1,0 +1,40 @@
+.git/*
+.vscode/*
+sblogs/*
+plots/*
+modelstore/*
+analysis/*.gif
+slurm-*
+*.nc
+*.png
+*.out
+*.pt
+*.pdf
+*.gif
+*.npy
+computed_metrics/*
+wandb/
+generated_data/*
+.ipynb_checkpoints/
+*__pycache__/
+lightning_logs/*
+outputs/
+baselines/diffesm/checkpoints
+baselines/mesmer/mesmer/output
+*.log
+
+# Normalization/statistics files: hosted on the HF Hub dataset repo instead
+# of git (some are tens of MB each); fetch with utils/download_stats_from_hub.py.
+stats/*
+
+# Generated manuscript/build artifacts and historical local snapshots.
+*.egg-info/
+*.aux
+*.bbl
+*.blg
+ac_paper/*.zip
+ac_paper_old/
+baselines/diffesm/profile/*.csv
+baselines/diffesm/scripts/submitted_*.txt
+
+!stats/__init__.py

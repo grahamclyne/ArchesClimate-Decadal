@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "Please cite the ArchesClimate manuscript when using this software."
+title: "ArchesClimate: Probabilistic Decadal Ensemble Generation With Flow Matching"
+type: software
+version: 0.1.0
+authors:
+  - family-names: Clyne
+    given-names: Graham
+  - family-names: Couairon
+    given-names: Guillaume
+  - family-names: Gastineau
+    given-names: Guillaume
+  - family-names: Monteleoni
+    given-names: Claire
+  - family-names: Charantonis
+    given-names: Anastase

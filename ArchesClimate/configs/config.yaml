@@ -1,0 +1,30 @@
+defaults:
+  - cluster: local
+  - paths
+  - dataloader: dcpp
+  - module: forecast_added_input_state_small
+  - inference: inference_25
+  - analysis: base
+  - override hydra/job_logging: none
+  - override hydra/hydra_logging: none
+  - _self_
+
+log: False # set True after configuring your own W&B project
+name: forecast_added_input_state_small_2
+project: ${module.project}
+exp_dir: ${paths.models}/${module.project}/${name}
+model_dir: ${paths.models}/${module.project}/${name}
+
+seed: 0
+max_steps: 250000
+max_epochs: 36
+batch_size: ${cluster.batch_size}
+resume: True
+
+save_step_frequency: 10000
+log_freq: 100
+limit_val_batches: 1
+accumulate_grad_batches: 1
+debug: False
+limit_examples: 0
+mode: train
