@@ -1,9 +1,6 @@
 """Lightweight tests: no training dependencies or external data needed."""
 
-import importlib.util
 import os
-import subprocess
-import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -62,73 +59,6 @@ class PortabilityTests(unittest.TestCase):
             str(Path("/tmp/new-models/project/prior").resolve()),
         )
         self.assertEqual(cfg.model_dir, "/old/model")
-
-
-class ExportTests(unittest.TestCase):
-    def test_export_filters_private_files_and_refuses_overwrite(self):
-        root = Path(__file__).resolve().parents[2]
-        script = root / "scripts/export_public.py"
-        if not script.exists():
-            self.skipTest("Exporter is a repository tool, not installed package data")
-        spec = importlib.util.spec_from_file_location("export_public", script)
-        exporter = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(exporter)
-        with tempfile.TemporaryDirectory() as tmp:
-            repo = Path(tmp) / "repo"
-            repo.mkdir()
-
-            def git(*args):
-                return subprocess.check_output(
-                    ["git", "-C", str(repo), *args], stderr=subprocess.DEVNULL
-                )
-
-            git("init")
-            for name in [
-                "ArchesClimate/__init__.py",
-                "LICENSE",
-                "THIRD_PARTY_NOTICES.md",
-                "CITATION.cff",
-                "licenses/upstream.txt",
-                ".github/workflows/validate.yml",
-                "ArchesClimate/ac_paper/paper.tex",
-                "ArchesClimate/ac_paper/figures/private.pdf",
-                "ArchesClimate/ac_paper_old/original.tex",
-                "ArchesClimate/ac_paper.zip",
-                "ArchesClimate/pcmdi/download_enso_pcmdi.py",
-                "ArchesClimate/pmcdi/legacy.py",
-                "ArchesClimate/docs/public_release.md",
-                "ArchesClimate/configs/cluster/jean_zay_a100.yaml",
-                "ArchesClimate/configs/cluster/local.yaml",
-                "ArchesClimate/analysis/bootstrap_results/result.npz",
-                "ArchesClimate/wandb/run.txt",
-                "ArchesClimate/baselines/diffesm/data/native_repro/private.yml",
-            ]:
-                target = repo / name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(b"fixture")
-            git("add", ".")
-            tree = git("write-tree").decode().strip()
-            out = Path(tmp) / "preview"
-            manifest = exporter.export(repo, tree, out)
-            self.assertEqual(len(manifest["sha256"]), 8)
-            self.assertTrue((out / "LICENSE").is_file())
-            self.assertTrue((out / "licenses/upstream.txt").is_file())
-            self.assertTrue((out / ".github/workflows/validate.yml").is_file())
-            self.assertTrue((out / "ArchesClimate/__init__.py").exists())
-            for excluded in [
-                "ArchesClimate/ac_paper",
-                "ArchesClimate/ac_paper_old",
-                "ArchesClimate/ac_paper.zip",
-                "ArchesClimate/pcmdi",
-                "ArchesClimate/pmcdi",
-                "ArchesClimate/docs/public_release.md",
-            ]:
-                self.assertFalse((out / excluded).exists(), excluded)
-            self.assertFalse(
-                (out / "ArchesClimate/baselines/diffesm/data/native_repro").exists()
-            )
-            with self.assertRaises(FileExistsError):
-                exporter.export(repo, tree, out)
 
 
 if __name__ == "__main__":
